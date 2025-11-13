@@ -2,7 +2,6 @@ package org.reactome;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVRecord;
 import org.gk.model.GKInstance;
 import org.gk.model.InstanceDisplayNameGenerator;
 import org.gk.model.ReactomeJavaConstants;
@@ -11,7 +10,6 @@ import org.gk.schema.Schema;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -265,7 +263,6 @@ public class Main {
 
     private static BufferedReader getBufferedReader(String fileName) throws IOException {
         return Files.newBufferedReader(Paths.get(fileName));
-        //return new BufferedReader(new InputStreamReader(Main.class.getClassLoader().getResourceAsStream(fileName)));
     }
 
     private static MySQLAdaptor getDba() {
