@@ -90,7 +90,7 @@ public class Main {
                 );
             }
             addModifiedInstanceEdit(referenceTherapeutic);
-            report(referenceTherapeutic, chEBIIds);
+            report(referenceTherapeutic, chEBIIds, "addition");
 
             if (referenceTherapeutic.getDbAdaptor() == null) {
                 System.out.println(chEBIIds);
@@ -153,6 +153,8 @@ public class Main {
             referenceTherapeutic.removeAttributeValueNoCheck(
                 ReactomeJavaConstants.crossReference, chEBIDatabaseIdentifier);
         }
+
+        report(referenceTherapeutic, chEBIDatabaseIdentifiers.keySet(), "removal");
     }
 
     private static void addModifiedInstanceEdit(GKInstance referenceTherapeutic) throws Exception {
@@ -301,12 +303,13 @@ public class Main {
         return reader; // Return reader at proper position after version header, if exists
     }
 
-    private static void report(GKInstance referenceTherapeutic, Set<String> chEBIIds) {
+    private static void report(GKInstance referenceTherapeutic, Set<String> chEBIIds, String typeOfChange) {
         System.out.println(
             String.join("\t",
                 referenceTherapeutic.getDBID().toString(),
                 referenceTherapeutic.getDisplayName(),
-                "ChEBI Id(s):" + chEBIIds
+                "ChEBI Id(s):" + chEBIIds,
+                typeOfChange
             )
         );
     }
