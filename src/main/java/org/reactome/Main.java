@@ -11,7 +11,6 @@ import org.gk.schema.Schema;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.SQLException;
@@ -220,17 +219,17 @@ public class Main {
 
     private static Map<String, Set<String>> getGuideToPharmacology2ChEBIMapping() throws IOException {
         Map<String, String> guideToPharmacology2PubChem = processGuideToPharmacologyFile();
-        Map<String, String> pubChemToChEBI = processPubChemFile();
+        Map<String, Set<String>> pubChemToChEBI = processPubChemFile();
 
         Map<String, Set<String>> guideToPharmacology2ChEBI = new HashMap<>();
         for (Map.Entry<String, String> entry : guideToPharmacology2PubChem.entrySet()) {
             String guideToPharmacologyId = entry.getKey();
             String pubChemId = entry.getValue();
-            String chEBIId = pubChemToChEBI.get(pubChemId);
+            Set<String> chEBIIds = pubChemToChEBI.get(pubChemId);
 
-            if (chEBIId != null && !chEBIId.isEmpty()) {
+            if (chEBIIds != null && !chEBIIds.isEmpty()) {
                 guideToPharmacology2ChEBI.computeIfAbsent(guideToPharmacologyId, k -> new HashSet<>())
-                    .add(chEBIId);
+                    .addAll(chEBIIds);
             }
         }
 
@@ -260,8 +259,8 @@ public class Main {
         return guideToPharmacology2PubChem;
     }
 
-    private static Map<String, String> processPubChemFile() throws IOException {
-        Map<String, String> pubChem2ChEBI = new HashMap<>();
+    private static Map<String, Set<String>> processPubChemFile() throws IOException {
+        Map<String, Set<String>> pubChem2ChEBI = new HashMap<>();
 
         BufferedReader pubChemCompoundFileBufferedReader = getPubChemCompoundFileBufferedReader();
         String line;
@@ -272,7 +271,7 @@ public class Main {
             String chEBIId = extractChEBIId(columns[1]);
 
             if (!chEBIId.isEmpty()) {
-                pubChem2ChEBI.put(cid, chEBIId);
+                pubChem2ChEBI.computeIfAbsent(cid, k -> new HashSet<>()).add(chEBIId);
             }
         }
 
