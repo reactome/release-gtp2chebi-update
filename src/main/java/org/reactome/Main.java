@@ -192,8 +192,9 @@ public class Main {
     }
 
     private static GKInstance getPersonInstance() throws Exception {
-        final long joelPersonInstanceId = 1551959L;
-        return getDba().fetchInstance(joelPersonInstanceId);
+        long personDbId = Long.parseLong(getConfigProperties().getProperty("personId"));
+
+        return getDba().fetchInstance(personDbId);
     }
 
     private static String getCurrentDateTime() {
