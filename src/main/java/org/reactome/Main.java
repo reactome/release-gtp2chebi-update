@@ -1,7 +1,11 @@
 package org.reactome;
 
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.gk.model.GKInstance;
 import org.gk.model.InstanceDisplayNameGenerator;
 import org.gk.model.ReactomeJavaConstants;
@@ -12,7 +16,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -25,10 +31,24 @@ import java.util.regex.Pattern;
  * Created 1/30/2025
  */
 public class Main {
-    private static GKInstance createdInstanceEdit;
-    private static MySQLAdaptor dba;
+    private static final Logger logger = LogManager.getLogger();
+
+    private GKInstance createdInstanceEdit;
+    private MySQLAdaptor dba;
+
+    @Parameter(names = {"-o", "--output"})
+    private String outputFilePath = "./cross_reference_update.txt";
 
     public static void main(String[] args) throws Exception {
+        Main main = new Main();
+        JCommander.newBuilder()
+            .addObject(main)
+            .build()
+            .parse(args);
+        main.run();
+    }
+
+    public void run() throws Exception {
         FileDownloader fileDownloader = new FileDownloader();
         fileDownloader.downloadFiles();
 
@@ -60,7 +80,7 @@ public class Main {
         }
     }
 
-    private static Map<String, GKInstance> getGtoP2ReferenceTherapeutics() throws Exception {
+    private Map<String, GKInstance> getGtoP2ReferenceTherapeutics() throws Exception {
         Collection<GKInstance> referenceTherapeutics =
             getDba().fetchInstancesByClass(ReactomeJavaConstants.ReferenceTherapeutic);
 
@@ -74,23 +94,24 @@ public class Main {
         return gToP2ReferenceTherapeutics;
     }
 
-    private static boolean hasGuideToPharmacologyReferenceDatabase(GKInstance referenceTherapeutic) throws Exception {
+    private boolean hasGuideToPharmacologyReferenceDatabase(GKInstance referenceTherapeutic) throws Exception {
         GKInstance referenceDatabase = (GKInstance) referenceTherapeutic.getAttributeValue(ReactomeJavaConstants.referenceDatabase);
 
         return referenceDatabase.getDisplayName().equalsIgnoreCase("Guide to Pharmacology - Ligands");
     }
 
-    private static boolean hasChEBICrossReference(GKInstance referenceTherapeutic) throws Exception {
+    private boolean hasChEBICrossReference(GKInstance referenceTherapeutic) throws Exception {
         return !getChEBICrossReferences(referenceTherapeutic).isEmpty();
     }
 
-    private static boolean addChEBICrossReference(GKInstance referenceTherapeutic, String chEBIId) throws Exception {
+    private boolean addChEBICrossReference(GKInstance referenceTherapeutic, String chEBIId) throws Exception {
         return addChEBICrossReferences(referenceTherapeutic, Collections.singleton(chEBIId));
     }
 
-    private static boolean addChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds) throws Exception {
+    private boolean addChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds) throws Exception {
         if (chEBIIds != null && !chEBIIds.isEmpty()) {
             for (String chEBIId : chEBIIds) {
+                logger.info("Adding " + chEBIId + " cross-reference to " + referenceTherapeutic);
                 referenceTherapeutic.addAttributeValue(
                     ReactomeJavaConstants.crossReference,
                     createDatabaseIdentifier(chEBIId)
@@ -103,7 +124,7 @@ public class Main {
         return false;
     }
 
-    private static boolean updateChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds)
+    private boolean updateChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds)
         throws Exception {
 
         boolean updated = false;
@@ -126,7 +147,7 @@ public class Main {
         return updated;
     }
 
-    private static Map<String, GKInstance> getChEBICrossReferences(GKInstance referenceTherapeutic) throws Exception {
+    private Map<String, GKInstance> getChEBICrossReferences(GKInstance referenceTherapeutic) throws Exception {
         Map<String, GKInstance> chEBICrossReferences = new HashMap<>();
 
         Collection<GKInstance> crossReferences =
@@ -143,8 +164,10 @@ public class Main {
         return chEBICrossReferences;
     }
 
-    private static void removeChEBICrossReferences(
-        GKInstance referenceTherapeutic, Map<String, GKInstance> chEBIDatabaseIdentifiers) {
+    private void removeChEBICrossReferences(
+        GKInstance referenceTherapeutic, Map<String, GKInstance> chEBIDatabaseIdentifiers) throws IOException {
+
+        logger.info("Removing " + chEBIDatabaseIdentifiers.keySet() + " cross-references from " + referenceTherapeutic);
 
         for (GKInstance chEBIDatabaseIdentifier : chEBIDatabaseIdentifiers.values()) {
             referenceTherapeutic.removeAttributeValueNoCheck(
@@ -154,11 +177,11 @@ public class Main {
         report(referenceTherapeutic, chEBIDatabaseIdentifiers.keySet(), "removal");
     }
 
-    private static void addModifiedInstanceEdit(GKInstance referenceTherapeutic) throws Exception {
+    private void addModifiedInstanceEdit(GKInstance referenceTherapeutic) throws Exception {
         referenceTherapeutic.addAttributeValue(ReactomeJavaConstants.modified, getCreatedInstanceEdit());
     }
 
-    private static GKInstance createDatabaseIdentifier(String chEBIId) throws Exception {
+    private GKInstance createDatabaseIdentifier(String chEBIId) throws Exception {
         GKInstance databaseIdentifier =
             new GKInstance(getSchema().getClassByName(ReactomeJavaConstants.DatabaseIdentifier));
         
@@ -171,13 +194,13 @@ public class Main {
         return databaseIdentifier;
     }
 
-    private static GKInstance getChEBIReferenceDatabase() throws Exception {
+    private GKInstance getChEBIReferenceDatabase() throws Exception {
         return (GKInstance) getDba().fetchInstanceByAttribute(
             ReactomeJavaConstants.ReferenceDatabase, ReactomeJavaConstants._displayName, "=", "ChEBI"
         ).iterator().next();
     }
 
-    private static GKInstance getCreatedInstanceEdit() throws Exception {
+    private GKInstance getCreatedInstanceEdit() throws Exception {
         if (createdInstanceEdit == null) {
             createdInstanceEdit = new GKInstance(getSchema().getClassByName(ReactomeJavaConstants.InstanceEdit));
             createdInstanceEdit.addAttributeValue(ReactomeJavaConstants.author, getPersonInstance());
@@ -188,34 +211,35 @@ public class Main {
         return createdInstanceEdit;
     }
 
-    private static GKInstance getPersonInstance() throws Exception {
+    private GKInstance getPersonInstance() throws Exception {
         long personDbId = Long.parseLong(getConfigProperties().getProperty("personId"));
 
         return getDba().fetchInstance(personDbId);
     }
 
-    private static String getCurrentDateTime() {
+    private String getCurrentDateTime() {
         return ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss"));
     }
 
-    private static MySQLAdaptor createDba() throws SQLException, IOException {
+    private MySQLAdaptor createDba() throws SQLException, IOException {
         Properties configProperties = getConfigProperties();
 
+        String dbConfigPrefix = "curator.";
         return new MySQLAdaptor(
-            configProperties.getProperty("host", "localhost"),
-            configProperties.getProperty("dbName"),
-            configProperties.getProperty("user", "root"),
-            configProperties.getProperty("pass", "root")
+            configProperties.getProperty(dbConfigPrefix + "host", "localhost"),
+            configProperties.getProperty(dbConfigPrefix + "dbName"),
+            configProperties.getProperty(dbConfigPrefix + "user", "root"),
+            configProperties.getProperty(dbConfigPrefix + "pass", "root")
         );
     }
 
-    private static Properties getConfigProperties() throws IOException {
+    private Properties getConfigProperties() throws IOException {
         Properties props = new Properties();
         props.load(Main.class.getClassLoader().getResourceAsStream("config.properties"));
         return props;
     }
 
-    private static Map<String, Set<String>> getGuideToPharmacology2ChEBIMapping() throws IOException {
+    private Map<String, Set<String>> getGuideToPharmacology2ChEBIMapping() throws IOException {
         Map<String, String> guideToPharmacology2PubChem = processGuideToPharmacologyFile();
         Map<String, Set<String>> pubChemToChEBI = processPubChemFile();
 
@@ -234,7 +258,7 @@ public class Main {
         return guideToPharmacology2ChEBI;
     }
 
-    private static Schema getSchema() throws Exception {
+    private Schema getSchema() throws Exception {
         if (getDba().getSchema() == null) {
             getDba().fetchSchema();
         }
@@ -242,7 +266,7 @@ public class Main {
         return getDba().getSchema();
     }
 
-    private static Map<String, String> processGuideToPharmacologyFile() {
+    private Map<String, String> processGuideToPharmacologyFile() {
         Map<String, String> guideToPharmacology2PubChem = new HashMap<>();
 
         try(CSVParser parser = getGtoPCSVParser(getGuideToPharmacologyFileBufferedReader())) {
@@ -257,7 +281,7 @@ public class Main {
         return guideToPharmacology2PubChem;
     }
 
-    private static Map<String, Set<String>> processPubChemFile() throws IOException {
+    private Map<String, Set<String>> processPubChemFile() throws IOException {
         Map<String, Set<String>> pubChem2ChEBI = new HashMap<>();
 
         BufferedReader pubChemCompoundFileBufferedReader = getPubChemCompoundFileBufferedReader();
@@ -276,7 +300,7 @@ public class Main {
         return pubChem2ChEBI;
     }
 
-    private static String extractChEBIId(String chEBIIdColumn) {
+    private String extractChEBIId(String chEBIIdColumn) {
         Pattern chEBIIdPattern = Pattern.compile("CHEBI:(\\d+).*");
         Matcher chEBIIdMatcher = chEBIIdPattern.matcher(chEBIIdColumn);
 
@@ -286,14 +310,14 @@ public class Main {
         return chEBIIdMatcher.group(1);
     }
 
-    private static CSVParser getGtoPCSVParser(BufferedReader csvFileBufferedReader) throws IOException {
+    private CSVParser getGtoPCSVParser(BufferedReader csvFileBufferedReader) throws IOException {
         return new CSVParser(
             getReaderAfterVersionHeader(csvFileBufferedReader),
             CSVFormat.DEFAULT.withFirstRecordAsHeader()
         );
     }
 
-    private static Reader getReaderAfterVersionHeader(BufferedReader reader) throws IOException {
+    private Reader getReaderAfterVersionHeader(BufferedReader reader) throws IOException {
         String header = reader.readLine();
         if (!header.contains("GtoPdb Version")) {
             reader.reset(); // Reset to beginning to include first line if not version header
@@ -301,30 +325,40 @@ public class Main {
         return reader; // Return reader at proper position after version header, if exists
     }
 
-    private static void report(GKInstance referenceTherapeutic, Set<String> chEBIIds, String typeOfChange) {
-        System.out.println(
+    private void report(GKInstance referenceTherapeutic, Set<String> chEBIIds, String typeOfChange) throws IOException {
+        String outputLine =
             String.join("\t",
                 referenceTherapeutic.getDBID().toString(),
                 referenceTherapeutic.getDisplayName(),
                 "ChEBI Id(s):" + chEBIIds,
                 typeOfChange
-            )
+            ).concat(System.lineSeparator());
+
+        Files.write(
+            getOutputFilePath(),
+            outputLine.getBytes(),
+            StandardOpenOption.CREATE, StandardOpenOption.APPEND
         );
+
     }
 
-    private static BufferedReader getGuideToPharmacologyFileBufferedReader() throws IOException {
+    private Path getOutputFilePath() {
+        return Path.of(this.outputFilePath);
+    }
+
+    private BufferedReader getGuideToPharmacologyFileBufferedReader() throws IOException {
         return getBufferedReader("ligand_id_mapping.csv");
     }
 
-    private static BufferedReader getPubChemCompoundFileBufferedReader() throws IOException {
+    private BufferedReader getPubChemCompoundFileBufferedReader() throws IOException {
         return getBufferedReader("pubchem_id_mapping.tsv");
     }
 
-    private static BufferedReader getBufferedReader(String fileName) throws IOException {
+    private BufferedReader getBufferedReader(String fileName) throws IOException {
         return Files.newBufferedReader(Paths.get(fileName));
     }
 
-    private static MySQLAdaptor getDba() {
+    private MySQLAdaptor getDba() {
         return dba;
     }
 }

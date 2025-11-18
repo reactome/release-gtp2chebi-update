@@ -1,5 +1,8 @@
 package org.reactome;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.*;
 import java.net.URI;
 import java.net.URL;
@@ -18,13 +21,14 @@ import java.util.zip.GZIPInputStream;
  * Created 10/31/2025
  */
 public class FileDownloader {
+	private static final Logger logger = LogManager.getLogger();
 
 	public void downloadFiles() throws IOException, InterruptedException {
-		downloadLigandIdMappingFile();
-		downloadPubChemCompoundMappingFile();
+		downloadLigandIdMappingFileIfNeeded();
+		downloadPubChemCompoundMappingFileIfNeeded();
 	}
 
-	public void downloadLigandIdMappingFile() throws IOException, InterruptedException {
+	public void downloadLigandIdMappingFileIfNeeded() throws IOException, InterruptedException {
 		final String ligandIdMappingURL = "https://www.guidetopharmacology.org/DATA/ligands.csv";
 		final String ligandIdMappingFileName = "ligand_id_mapping.csv";
 
@@ -34,6 +38,8 @@ public class FileDownloader {
 			return;
 		}
 
+		logger.info("Downloading ligand id mapping file...");
+
 		HttpClient client = HttpClient.newHttpClient();
 		HttpRequest request = HttpRequest.newBuilder()
 			.uri(URI.create(ligandIdMappingURL))
@@ -42,13 +48,15 @@ public class FileDownloader {
 		client.send(request, HttpResponse.BodyHandlers.ofFile(savePath));
 	}
 
-	public void downloadPubChemCompoundMappingFile() throws IOException, InterruptedException {
+	public void downloadPubChemCompoundMappingFileIfNeeded() throws IOException, InterruptedException {
 		final String pubChemCompoundFileName = "pubchem_id_mapping.tsv";
 		final String pubChemCompoundURL = "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-Synonym-filtered.gz";
 
 		if (Files.exists(Path.of(pubChemCompoundFileName)) && !isOlderThan2Days(Path.of(pubChemCompoundFileName))) {
 			return;
 		}
+
+		logger.info("Downloading PubChem Compound mapping file...");
 
 		try (InputStream in = new GZIPInputStream(new URL(pubChemCompoundURL).openStream());
 			 BufferedReader reader = new BufferedReader(new InputStreamReader(in));
