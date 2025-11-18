@@ -1,12 +1,13 @@
 # Guide to Pharmacology (GtoP) Cross-Referencer to ChEBI
 
-This tool will perform an update to ReferenceTherapeutic instances (representing Guide to Pharmacology identifiers) by adding cross-references to ChEBI identifiers.
+This tool will perform an update to ReferenceTherapeutic instances (representing Guide to Pharmacology identifiers) by adding and removing cross-references to ChEBI identifiers as needed.
 
 It will:
 
  - Download mapping files for Guide to Pharmacology ligands (GtoP to PubChem mapping) and PubChem synonyms (PubChem to ChEBI mapping)
  - Process the mapping files to build a GtoP to ChEBI mapping
- - Create and insert a ChEBI cross-reference to the ReferenceTherapeutics that have a GtoP identifier in the mapping
+ - Add ChEBI cross-references to the ReferenceTherapeutics that have a GtoP identifier in the mapping
+ - Remove any existing ChEBI cross-references to the ReferenceTherapeutics that do not have a GtoP identifier in the mapping
 
 ## Configuration
 
@@ -17,6 +18,7 @@ user=username
 pass=password
 host=localhost
 dbName=gk_central
+personId=person_db_id
 ```
 
 ## Compiling & Running
