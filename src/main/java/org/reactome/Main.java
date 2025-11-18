@@ -118,6 +118,7 @@ public class Main {
 
         if (!chEBIDatabaseIdentifiers.isEmpty()) {
             removeChEBICrossReferences(referenceTherapeutic, chEBIDatabaseIdentifiers);
+            updated = true;
         }
 
         if (updated) {
