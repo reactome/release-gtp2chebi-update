@@ -43,10 +43,18 @@ public class Main {
                 dba.loadInstanceAttributeValues(referenceTherapeutic);
 
                 Set<String> chEBIIds = gToP2ChEBI.get(gToPId);
+
+                boolean addedOrUpdated;
                 if (!hasChEBICrossReference(referenceTherapeutic)) {
-                    addChEBICrossReferences(referenceTherapeutic, chEBIIds);
+                    addedOrUpdated = addChEBICrossReferences(referenceTherapeutic, chEBIIds);
                 } else {
-                    updateChEBICrossReferences(referenceTherapeutic, chEBIIds);
+                    addedOrUpdated = updateChEBICrossReferences(referenceTherapeutic, chEBIIds);
+                }
+
+                if (addedOrUpdated) {
+                    getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.crossReference);
+                    addModifiedInstanceEdit(referenceTherapeutic);
+                    getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.modified);
                 }
             }
         }
@@ -76,11 +84,11 @@ public class Main {
         return !getChEBICrossReferences(referenceTherapeutic).isEmpty();
     }
 
-    private static void addChEBICrossReference(GKInstance referenceTherapeutic, String chEBIId) throws Exception {
-        addChEBICrossReferences(referenceTherapeutic, Collections.singleton(chEBIId));
+    private static boolean addChEBICrossReference(GKInstance referenceTherapeutic, String chEBIId) throws Exception {
+        return addChEBICrossReferences(referenceTherapeutic, Collections.singleton(chEBIId));
     }
 
-    private static void addChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds) throws Exception {
+    private static boolean addChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds) throws Exception {
         if (chEBIIds != null && !chEBIIds.isEmpty()) {
             for (String chEBIId : chEBIIds) {
                 referenceTherapeutic.addAttributeValue(
@@ -88,19 +96,14 @@ public class Main {
                     createDatabaseIdentifier(chEBIId)
                 );
             }
-            addModifiedInstanceEdit(referenceTherapeutic);
             report(referenceTherapeutic, chEBIIds, "addition");
 
-            if (referenceTherapeutic.getDbAdaptor() == null) {
-                System.out.println(chEBIIds);
-                return;
-            }
-            getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.crossReference);
-            getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.modified);
+            return true;
         }
+        return false;
     }
 
-    private static void updateChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds)
+    private static boolean updateChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds)
         throws Exception {
 
         boolean updated = false;
@@ -120,12 +123,7 @@ public class Main {
             updated = true;
         }
 
-        if (updated) {
-            addModifiedInstanceEdit(referenceTherapeutic);
-
-            getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.crossReference);
-            getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.modified);
-        }
+        return updated;
     }
 
     private static Map<String, GKInstance> getChEBICrossReferences(GKInstance referenceTherapeutic) throws Exception {
