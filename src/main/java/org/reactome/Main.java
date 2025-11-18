@@ -279,7 +279,7 @@ public class Main {
     }
 
     private static String extractChEBIId(String chEBIIdColumn) {
-        Pattern chEBIIdPattern = Pattern.compile("(CHEBI:\\d+).*");
+        Pattern chEBIIdPattern = Pattern.compile("CHEBI:(\\d+).*");
         Matcher chEBIIdMatcher = chEBIIdPattern.matcher(chEBIIdColumn);
 
         if (!chEBIIdMatcher.find()) {
