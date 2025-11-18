@@ -218,7 +218,7 @@ public class Main {
         return props;
     }
 
-    private static Map<String, Set<String>> getGuideToPharmacology2ChEBIMapping() throws URISyntaxException, IOException {
+    private static Map<String, Set<String>> getGuideToPharmacology2ChEBIMapping() throws IOException {
         Map<String, String> guideToPharmacology2PubChem = processGuideToPharmacologyFile();
         Map<String, String> pubChemToChEBI = processPubChemFile();
 
