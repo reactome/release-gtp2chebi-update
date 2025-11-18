@@ -40,36 +40,22 @@ public class Main {
         for (String gToPId : gToP2ChEBI.keySet()) {
             GKInstance referenceTherapeutic = referenceTherapeutics.get(gToPId);
 
-            if (referenceTherapeutic != null && !hasChEBICrossReference(referenceTherapeutic)) {
+            if (referenceTherapeutic != null) {
                 dba.loadInstanceAttributeValues(referenceTherapeutic);
 
                 Set<String> chEBIIds = gToP2ChEBI.get(gToPId);
-                if (chEBIIds != null && !chEBIIds.isEmpty()) {
-                    for (String chEBIId : chEBIIds) {
-                        referenceTherapeutic.addAttributeValue(
-                            ReactomeJavaConstants.crossReference,
-                            createDatabaseIdentifier(chEBIId)
-                        );
-                    }
-                    referenceTherapeutic.addAttributeValue(
-                        ReactomeJavaConstants.modified,
-                        getCreatedInstanceEdit()
-                    );
-                    report(referenceTherapeutic, chEBIIds);
-
-                    if (referenceTherapeutic.getDbAdaptor() == null) {
-                        System.out.println(chEBIIds);
-                        continue;
-                    }
-                    getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.crossReference);
-                    getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.modified);
+                if (!hasChEBICrossReference(referenceTherapeutic)) {
+                    addChEBICrossReferences(referenceTherapeutic, chEBIIds);
+                } else {
+                    updateChEBICrossReferences(referenceTherapeutic, chEBIIds);
                 }
             }
         }
     }
 
     private static Map<String, GKInstance> getGtoP2ReferenceTherapeutics() throws Exception {
-        Collection<GKInstance> referenceTherapeutics = getDba().fetchInstancesByClass(ReactomeJavaConstants.ReferenceTherapeutic);
+        Collection<GKInstance> referenceTherapeutics =
+            getDba().fetchInstancesByClass(ReactomeJavaConstants.ReferenceTherapeutic);
 
         Map<String, GKInstance> gToP2ReferenceTherapeutics = new HashMap<>();
         for (GKInstance referenceTherapeutic : referenceTherapeutics) {
@@ -88,17 +74,88 @@ public class Main {
     }
 
     private static boolean hasChEBICrossReference(GKInstance referenceTherapeutic) throws Exception {
+        return !getChEBICrossReferences(referenceTherapeutic).isEmpty();
+    }
+
+    private static void addChEBICrossReference(GKInstance referenceTherapeutic, String chEBIId) throws Exception {
+        addChEBICrossReferences(referenceTherapeutic, Collections.singleton(chEBIId));
+    }
+
+    private static void addChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds) throws Exception {
+        if (chEBIIds != null && !chEBIIds.isEmpty()) {
+            for (String chEBIId : chEBIIds) {
+                referenceTherapeutic.addAttributeValue(
+                    ReactomeJavaConstants.crossReference,
+                    createDatabaseIdentifier(chEBIId)
+                );
+            }
+            addModifiedInstanceEdit(referenceTherapeutic);
+            report(referenceTherapeutic, chEBIIds);
+
+            if (referenceTherapeutic.getDbAdaptor() == null) {
+                System.out.println(chEBIIds);
+                return;
+            }
+            getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.crossReference);
+            getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.modified);
+        }
+    }
+
+    private static void updateChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds)
+        throws Exception {
+
+        boolean updated = false;
+        Map<String, GKInstance> chEBIDatabaseIdentifiers = getChEBICrossReferences(referenceTherapeutic);
+        for (String chEBIId : chEBIIds) {
+            if (!chEBIDatabaseIdentifiers.containsKey(chEBIId)) {
+                addChEBICrossReference(referenceTherapeutic, chEBIId);
+                updated = true;
+            } else {
+                // Should be kept in database, so remove from map used to delete obsolete database identifiers
+                chEBIDatabaseIdentifiers.remove(chEBIId);
+            }
+        }
+
+        if (!chEBIDatabaseIdentifiers.isEmpty()) {
+            removeChEBICrossReferences(referenceTherapeutic, chEBIDatabaseIdentifiers);
+        }
+
+        if (updated) {
+            addModifiedInstanceEdit(referenceTherapeutic);
+
+            getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.crossReference);
+            getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.modified);
+        }
+    }
+
+    private static Map<String, GKInstance> getChEBICrossReferences(GKInstance referenceTherapeutic) throws Exception {
+        Map<String, GKInstance> chEBICrossReferences = new HashMap<>();
+
         Collection<GKInstance> crossReferences =
             referenceTherapeutic.getAttributeValuesList(ReactomeJavaConstants.crossReference);
         for (GKInstance crossReference : crossReferences) {
             GKInstance crossReferenceReferenceDatabase =
                 (GKInstance) crossReference.getAttributeValue(ReactomeJavaConstants.referenceDatabase);
             if (crossReferenceReferenceDatabase.getDisplayName().equals("ChEBI")) {
-                return true;
+                String chEBIIdentifier = (String) crossReference.getAttributeValue(ReactomeJavaConstants.identifier);
+                chEBICrossReferences.put(chEBIIdentifier, crossReference);
             }
         }
 
-        return false;
+        return chEBICrossReferences;
+    }
+
+    private static void removeChEBICrossReferences(
+        GKInstance referenceTherapeutic, Map<String, GKInstance> chEBIDatabaseIdentifiers) {
+
+        for (GKInstance chEBIDatabaseIdentifier : chEBIDatabaseIdentifiers.values()) {
+            referenceTherapeutic.removeAttributeValueNoCheck(
+                ReactomeJavaConstants.crossReference, chEBIDatabaseIdentifier);
+        }
+    }
+
+    private static void addModifiedInstanceEdit(GKInstance referenceTherapeutic) throws Exception {
+        referenceTherapeutic.addAttributeValue(ReactomeJavaConstants.modified, getCreatedInstanceEdit());
     }
 
     private static GKInstance createDatabaseIdentifier(String chEBIId) throws Exception {
