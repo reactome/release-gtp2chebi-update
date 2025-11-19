@@ -224,12 +224,12 @@ public class Main {
     private MySQLAdaptor createDba() throws SQLException, IOException {
         Properties configProperties = getConfigProperties();
 
-        String dbConfigPrefix = "curator.";
+        String dbConfigPrefix = "curator.database.";
         return new MySQLAdaptor(
             configProperties.getProperty(dbConfigPrefix + "host", "localhost"),
-            configProperties.getProperty(dbConfigPrefix + "dbName"),
+            configProperties.getProperty(dbConfigPrefix + "name"),
             configProperties.getProperty(dbConfigPrefix + "user", "root"),
-            configProperties.getProperty(dbConfigPrefix + "pass", "root")
+            configProperties.getProperty(dbConfigPrefix + "password", "root")
         );
     }
 
