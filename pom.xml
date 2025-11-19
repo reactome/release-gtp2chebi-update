@@ -73,6 +73,7 @@
                             <Multi-Release>true</Multi-Release>
                         </manifestEntries>
                     </archive>
+                    <finalName>gtp-chebi-mapping</finalName>
                 </configuration>
                 <executions>
                     <execution>
