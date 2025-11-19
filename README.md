@@ -14,16 +14,16 @@ It will:
 This application requires a properties file at `src/main/resources/config.properties` that looks like this (with the appropriate values filled in place of the placeholders):
 
 ```
-user=username
-pass=password
-host=localhost
-dbName=gk_central
+curator.database.user=username
+curator.database.password=password
+curator.database.host=localhost
+curator.database.name=gk_central
 personId=person_db_id
 ```
 
 ## Compiling & Running
 
-This is a Java application which requries a Java 8+ environment. You will need maven and a full JDK to compile.
+This is a Java application which requires a Java 8+ environment. You will need maven and a full JDK to compile.
 
 To compile the application, run this command:
 
@@ -33,5 +33,5 @@ $ mvn clean package
 
 To run the program, execute this command:
 ```
-$ java -jar target/gtp_chebi_mapping-jar-with-dependencies.jar
+$ java -jar target/gtp_chebi_mapping-jar-with-dependencies.jar -c /path/to/config.properties -o /path/to/output.txt
 ```
