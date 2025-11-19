@@ -36,6 +36,9 @@ public class Main {
     private GKInstance createdInstanceEdit;
     private MySQLAdaptor dba;
 
+    @Parameter(names = {"-c", "--config"})
+    private String configFilePath = "src/main/resources/config.properties";
+
     @Parameter(names = {"-o", "--output"})
     private String outputFilePath = "./cross_reference_update.txt";
 
@@ -49,10 +52,11 @@ public class Main {
     }
 
     public void run() throws Exception {
+        dba = createDba();
+
         FileDownloader fileDownloader = new FileDownloader();
         fileDownloader.downloadFiles();
 
-        dba = createDba();
         Map<String, GKInstance> referenceTherapeutics = getGtoP2ReferenceTherapeutics();
         Map<String, Set<String>> gToP2ChEBI = getGuideToPharmacology2ChEBIMapping();
 
@@ -235,7 +239,7 @@ public class Main {
 
     private Properties getConfigProperties() throws IOException {
         Properties props = new Properties();
-        props.load(Main.class.getClassLoader().getResourceAsStream("config.properties"));
+        props.load(Files.newInputStream(Path.of(this.configFilePath)));
         return props;
     }
 
