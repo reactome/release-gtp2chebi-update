@@ -1,4 +1,6 @@
 target/
+logs/
 .idea/
+src/main/resources/config.properties
 *.csv
 *.tsv
