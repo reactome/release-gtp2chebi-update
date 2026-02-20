@@ -25,6 +25,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * @author Joel Weiser (joel.weiser@oicr.on.ca)
@@ -115,7 +116,7 @@ public class Main {
     private boolean addChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds) throws Exception {
         if (chEBIIds != null && !chEBIIds.isEmpty()) {
             for (String chEBIId : chEBIIds) {
-                logger.info("Adding " + chEBIId + " cross-reference to " + referenceTherapeutic);
+                logger.info("Adding ChEBI:" + chEBIId + " cross-reference to " + referenceTherapeutic);
                 referenceTherapeutic.addAttributeValue(
                     ReactomeJavaConstants.crossReference,
                     createDatabaseIdentifier(chEBIId)
@@ -171,7 +172,8 @@ public class Main {
     private void removeChEBICrossReferences(
         GKInstance referenceTherapeutic, Map<String, GKInstance> chEBIDatabaseIdentifiers) throws IOException {
 
-        logger.info("Removing " + chEBIDatabaseIdentifiers.keySet() + " cross-references from " + referenceTherapeutic);
+        logger.info("Removing " + formatChEBIIdentifiers(chEBIDatabaseIdentifiers.keySet()) +
+            " cross-references from " + referenceTherapeutic);
 
         for (GKInstance chEBIDatabaseIdentifier : chEBIDatabaseIdentifiers.values()) {
             referenceTherapeutic.removeAttributeValueNoCheck(
@@ -179,6 +181,10 @@ public class Main {
         }
 
         report(referenceTherapeutic, chEBIDatabaseIdentifiers.keySet(), "removal");
+    }
+
+    private String formatChEBIIdentifiers(Set<String> chEBIIdentifiers) {
+        return chEBIIdentifiers.stream().map(id -> "ChEBI:" + id).collect(Collectors.joining(", "));
     }
 
     private void addModifiedInstanceEdit(GKInstance referenceTherapeutic) throws Exception {
