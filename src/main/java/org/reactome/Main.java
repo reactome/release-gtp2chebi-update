@@ -65,7 +65,8 @@ public class Main {
             GKInstance referenceTherapeutic = referenceTherapeutics.get(gToPId);
 
             if (referenceTherapeutic != null) {
-                dba.loadInstanceAttributeValues(referenceTherapeutic);
+                referenceTherapeutic.setDbAdaptor(getDba());
+                getDba().loadInstanceAttributeValues(referenceTherapeutic);
 
                 Set<String> chEBIIds = gToP2ChEBI.get(gToPId);
 
