@@ -61,6 +61,7 @@ public class Main {
         Map<String, GKInstance> referenceTherapeutics = getGtoP2ReferenceTherapeutics();
         Map<String, Set<String>> gToP2ChEBI = getGuideToPharmacology2ChEBIMapping();
 
+        writeFileHeader();
         for (String gToPId : gToP2ChEBI.keySet()) {
             GKInstance referenceTherapeutic = referenceTherapeutics.get(gToPId);
 
@@ -104,6 +105,21 @@ public class Main {
         GKInstance referenceDatabase = (GKInstance) referenceTherapeutic.getAttributeValue(ReactomeJavaConstants.referenceDatabase);
 
         return referenceDatabase.getDisplayName().equalsIgnoreCase("Guide to Pharmacology - Ligands");
+    }
+
+    private void writeFileHeader() throws IOException {
+        String outputLine = String.join("\t",
+                "Reference Therapeutic DbId",
+                "Reference Therapeutic DisplayName",
+                "ChEBI Ids",
+                "Type of change"
+            ).concat(System.lineSeparator());
+
+        Files.write(
+            getOutputFilePath(),
+            outputLine.getBytes(),
+            StandardOpenOption.CREATE, StandardOpenOption.APPEND
+        );
     }
 
     private boolean hasChEBICrossReference(GKInstance referenceTherapeutic) throws Exception {
@@ -337,8 +353,7 @@ public class Main {
     }
 
     private void report(GKInstance referenceTherapeutic, Set<String> chEBIIds, String typeOfChange) throws IOException {
-        String outputLine =
-            String.join("\t",
+        String outputLine = String.join("\t",
                 referenceTherapeutic.getDBID().toString(),
                 referenceTherapeutic.getDisplayName(),
                 "ChEBI Id(s):" + chEBIIds,
@@ -350,7 +365,6 @@ public class Main {
             outputLine.getBytes(),
             StandardOpenOption.CREATE, StandardOpenOption.APPEND
         );
-
     }
 
     private Path getOutputFilePath() {
