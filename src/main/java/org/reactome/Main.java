@@ -118,7 +118,7 @@ public class Main {
         Files.write(
             getOutputFilePath(),
             outputLine.getBytes(),
-            StandardOpenOption.CREATE, StandardOpenOption.APPEND
+            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING
         );
     }
 
