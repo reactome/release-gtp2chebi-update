@@ -46,6 +46,8 @@ public class FileDownloader {
 			.build();
 
 		client.send(request, HttpResponse.BodyHandlers.ofFile(savePath));
+
+		logger.info("Finished downloading ligand id mapping file");
 	}
 
 	public void downloadPubChemCompoundMappingFileIfNeeded() throws IOException, InterruptedException {
@@ -70,6 +72,8 @@ public class FileDownloader {
 				}
 			}
 		}
+
+		logger.info("Finished downloading PubChem Compound mapping file");
 	}
 
 	private boolean isOlderThan2Days(Path filePath) throws IOException {

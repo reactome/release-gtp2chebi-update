@@ -62,10 +62,12 @@ public class Main {
         Map<String, Set<String>> gToP2ChEBI = getGuideToPharmacology2ChEBIMapping();
 
         writeFileHeader();
+        logger.info("Beginning cross-reference check of Reference Therapeutic instances...");
         for (String gToPId : gToP2ChEBI.keySet()) {
             GKInstance referenceTherapeutic = referenceTherapeutics.get(gToPId);
 
             if (referenceTherapeutic != null) {
+                logger.debug("Checking {}", referenceTherapeutic);
                 referenceTherapeutic.setDbAdaptor(getDba());
                 getDba().loadInstanceAttributeValues(referenceTherapeutic);
 
@@ -85,6 +87,7 @@ public class Main {
                 }
             }
         }
+        logger.info("Finished cross-reference check of Reference Therapeutic instances");
     }
 
     private Map<String, GKInstance> getGtoP2ReferenceTherapeutics() throws Exception {
