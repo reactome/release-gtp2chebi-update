@@ -7,6 +7,39 @@
     <groupId>org.reactome</groupId>
     <artifactId>gtp_chebi_mapping</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>chebi-update</name>
+    <description>
+        Updates gk_central ReferenceTherapeutic instances (representing Guide to Pharmacology identifiers) by adding and removing cross-references to ChEBI identifiers as needed
+    </description>
+    <url>https://github.com/reactome/release-gtp2chebi-update</url>
+    <organization>
+        <name>Reactome</name>
+        <url>https://reactome.org</url>
+    </organization>
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Joel Weiser</name>
+            <email>jweiser@oicr.on.ca</email>
+            <organization>Ontario Institute for Cancer Research</organization>
+            <organizationUrl>https://oicr.on.ca</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/reactome/release-gtp2chebi-update.git</connection>
+        <developerConnection>scm:git:ssh://github.com/reactome/release-gtp2chebi-update.git</developerConnection>
+        <url>https://github.com/reactome/release-gtp2chebi-update</url>
+        <tag>main</tag>
+    </scm>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>
