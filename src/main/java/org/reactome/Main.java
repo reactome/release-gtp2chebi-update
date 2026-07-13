@@ -6,11 +6,8 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.gk.model.GKInstance;
-import org.gk.model.InstanceDisplayNameGenerator;
 import org.gk.model.ReactomeJavaConstants;
-import org.gk.persistence.MySQLAdaptor;
-import org.gk.schema.Schema;
+import org.reactome.curation.model.SimpleInstance;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -19,9 +16,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.sql.SQLException;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,8 +28,7 @@ import java.util.stream.Collectors;
 public class Main {
     private static final Logger logger = LogManager.getLogger();
 
-    private GKInstance createdInstanceEdit;
-    private MySQLAdaptor dba;
+    private CuratorToolAPI curatorToolAPI;
 
     @Parameter(names = {"-c", "--config"})
     private String configFilePath = "src/main/resources/config.properties";
@@ -53,23 +46,21 @@ public class Main {
     }
 
     public void run() throws Exception {
-        dba = createDba();
+        curatorToolAPI = new CuratorToolAPI();
 
         FileDownloader fileDownloader = new FileDownloader();
         fileDownloader.downloadFiles();
 
-        Map<String, GKInstance> referenceTherapeutics = getGtoP2ReferenceTherapeutics();
+        Map<String, SimpleInstance> referenceTherapeutics = getGtoP2ReferenceTherapeutics();
         Map<String, Set<String>> gToP2ChEBI = getGuideToPharmacology2ChEBIMapping();
 
         writeFileHeader();
         logger.info("Beginning cross-reference check of Reference Therapeutic instances...");
         for (String gToPId : gToP2ChEBI.keySet()) {
-            GKInstance referenceTherapeutic = referenceTherapeutics.get(gToPId);
+            SimpleInstance referenceTherapeutic = referenceTherapeutics.get(gToPId);
 
             if (referenceTherapeutic != null) {
-                logger.debug("Checking {}", referenceTherapeutic);
-                referenceTherapeutic.setDbAdaptor(getDba());
-                getDba().loadInstanceAttributeValues(referenceTherapeutic);
+                logger.debug("Checking {}", referenceTherapeutic.getDisplayName());
 
                 Set<String> chEBIIds = gToP2ChEBI.get(gToPId);
 
@@ -81,31 +72,29 @@ public class Main {
                 }
 
                 if (addedOrUpdated) {
-                    getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.crossReference);
-                    addModifiedInstanceEdit(referenceTherapeutic);
-                    getDba().updateInstanceAttribute(referenceTherapeutic, ReactomeJavaConstants.modified);
+                    updateInDb(referenceTherapeutic);
                 }
             }
         }
+        curatorToolAPI.close();
         logger.info("Finished cross-reference check of Reference Therapeutic instances");
     }
 
-    private Map<String, GKInstance> getGtoP2ReferenceTherapeutics() throws Exception {
-        Collection<GKInstance> referenceTherapeutics =
-            getDba().fetchInstancesByClass(ReactomeJavaConstants.ReferenceTherapeutic);
+    private Map<String, SimpleInstance> getGtoP2ReferenceTherapeutics() throws Exception {
+        List<SimpleInstance> referenceTherapeutics = curatorToolAPI.fetchAllReferenceTherapeutics();
 
-        Map<String, GKInstance> gToP2ReferenceTherapeutics = new HashMap<>();
-        for (GKInstance referenceTherapeutic : referenceTherapeutics) {
+        Map<String, SimpleInstance> gToP2ReferenceTherapeutics = new HashMap<>();
+        for (SimpleInstance referenceTherapeutic : referenceTherapeutics) {
             if (hasGuideToPharmacologyReferenceDatabase(referenceTherapeutic)) {
-                String gToPIdentifier = (String) referenceTherapeutic.getAttributeValue(ReactomeJavaConstants.identifier);
+                String gToPIdentifier = (String) referenceTherapeutic.getAttribute(ReactomeJavaConstants.identifier);
                 gToP2ReferenceTherapeutics.put(gToPIdentifier, referenceTherapeutic);
             }
         }
         return gToP2ReferenceTherapeutics;
     }
 
-    private boolean hasGuideToPharmacologyReferenceDatabase(GKInstance referenceTherapeutic) throws Exception {
-        GKInstance referenceDatabase = (GKInstance) referenceTherapeutic.getAttributeValue(ReactomeJavaConstants.referenceDatabase);
+    private boolean hasGuideToPharmacologyReferenceDatabase(SimpleInstance referenceTherapeutic) throws Exception {
+        SimpleInstance referenceDatabase = (SimpleInstance) referenceTherapeutic.getAttribute(ReactomeJavaConstants.referenceDatabase);
 
         return referenceDatabase.getDisplayName().equalsIgnoreCase("Guide to Pharmacology - Ligands");
     }
@@ -125,22 +114,23 @@ public class Main {
         );
     }
 
-    private boolean hasChEBICrossReference(GKInstance referenceTherapeutic) throws Exception {
+    private boolean hasChEBICrossReference(SimpleInstance referenceTherapeutic) {
         return !getChEBICrossReferences(referenceTherapeutic).isEmpty();
     }
 
-    private boolean addChEBICrossReference(GKInstance referenceTherapeutic, String chEBIId) throws Exception {
+    private boolean addChEBICrossReference(SimpleInstance referenceTherapeutic, String chEBIId) throws Exception {
         return addChEBICrossReferences(referenceTherapeutic, Collections.singleton(chEBIId));
     }
 
-    private boolean addChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds) throws Exception {
+    private boolean addChEBICrossReferences(SimpleInstance referenceTherapeutic, Set<String> chEBIIds) throws Exception {
         if (chEBIIds != null && !chEBIIds.isEmpty()) {
             for (String chEBIId : chEBIIds) {
                 logger.info("Adding ChEBI:" + chEBIId + " cross-reference to " + referenceTherapeutic);
-                referenceTherapeutic.addAttributeValue(
-                    ReactomeJavaConstants.crossReference,
-                    createDatabaseIdentifier(chEBIId)
-                );
+                List<SimpleInstance> crossReferences =
+                    (List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference);
+                crossReferences.add(createDatabaseIdentifier(chEBIId));
+
+                referenceTherapeutic.setAttribute(ReactomeJavaConstants.crossReference, crossReferences);
             }
             report(referenceTherapeutic, chEBIIds, "addition");
 
@@ -149,11 +139,11 @@ public class Main {
         return false;
     }
 
-    private boolean updateChEBICrossReferences(GKInstance referenceTherapeutic, Set<String> chEBIIds)
+    private boolean updateChEBICrossReferences(SimpleInstance referenceTherapeutic, Set<String> chEBIIds)
         throws Exception {
 
         boolean updated = false;
-        Map<String, GKInstance> chEBIDatabaseIdentifiers = getChEBICrossReferences(referenceTherapeutic);
+        Map<String, SimpleInstance> chEBIDatabaseIdentifiers = getChEBICrossReferences(referenceTherapeutic);
         for (String chEBIId : chEBIIds) {
             if (!chEBIDatabaseIdentifiers.containsKey(chEBIId)) {
                 addChEBICrossReference(referenceTherapeutic, chEBIId);
@@ -172,16 +162,18 @@ public class Main {
         return updated;
     }
 
-    private Map<String, GKInstance> getChEBICrossReferences(GKInstance referenceTherapeutic) throws Exception {
-        Map<String, GKInstance> chEBICrossReferences = new HashMap<>();
+    private Map<String, SimpleInstance> getChEBICrossReferences(SimpleInstance referenceTherapeutic) {
+        Map<String, SimpleInstance> chEBICrossReferences = new HashMap<>();
 
-        Collection<GKInstance> crossReferences =
-            referenceTherapeutic.getAttributeValuesList(ReactomeJavaConstants.crossReference);
-        for (GKInstance crossReference : crossReferences) {
-            GKInstance crossReferenceReferenceDatabase =
-                (GKInstance) crossReference.getAttributeValue(ReactomeJavaConstants.referenceDatabase);
+        List<SimpleInstance> crossReferences =
+            (List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference);
+        for (SimpleInstance crossReference : crossReferences) {
+            crossReference = curatorToolAPI.inflate(crossReference);
+
+            SimpleInstance crossReferenceReferenceDatabase =
+                (SimpleInstance) crossReference.getAttribute(ReactomeJavaConstants.referenceDatabase);
             if (crossReferenceReferenceDatabase.getDisplayName().equals("ChEBI")) {
-                String chEBIIdentifier = (String) crossReference.getAttributeValue(ReactomeJavaConstants.identifier);
+                String chEBIIdentifier = (String) crossReference.getAttribute(ReactomeJavaConstants.identifier);
                 chEBICrossReferences.put(chEBIIdentifier, crossReference);
             }
         }
@@ -190,14 +182,16 @@ public class Main {
     }
 
     private void removeChEBICrossReferences(
-        GKInstance referenceTherapeutic, Map<String, GKInstance> chEBIDatabaseIdentifiers) throws IOException {
+        SimpleInstance referenceTherapeutic, Map<String, SimpleInstance> chEBIDatabaseIdentifiers) throws IOException {
 
         logger.info("Removing " + formatChEBIIdentifiers(chEBIDatabaseIdentifiers.keySet()) +
             " cross-references from " + referenceTherapeutic);
 
-        for (GKInstance chEBIDatabaseIdentifier : chEBIDatabaseIdentifiers.values()) {
-            referenceTherapeutic.removeAttributeValueNoCheck(
-                ReactomeJavaConstants.crossReference, chEBIDatabaseIdentifier);
+        for (SimpleInstance chEBIDatabaseIdentifier : chEBIDatabaseIdentifiers.values()) {
+            List<SimpleInstance> crossReferences =
+                (List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference);
+            crossReferences.removeIf(crossReference -> crossReference.getDbId().equals(chEBIDatabaseIdentifier.getDbId()));
+            referenceTherapeutic.setAttribute(ReactomeJavaConstants.crossReference, crossReferences);
         }
 
         report(referenceTherapeutic, chEBIDatabaseIdentifiers.keySet(), "removal");
@@ -207,60 +201,42 @@ public class Main {
         return chEBIIdentifiers.stream().map(id -> "ChEBI:" + id).collect(Collectors.joining(", "));
     }
 
-    private void addModifiedInstanceEdit(GKInstance referenceTherapeutic) throws Exception {
-        referenceTherapeutic.addAttributeValue(ReactomeJavaConstants.modified, getCreatedInstanceEdit());
-    }
+    private SimpleInstance createDatabaseIdentifier(String chEBIId) {
+        SimpleInstance databaseIdentifier = new SimpleInstance();
 
-    private GKInstance createDatabaseIdentifier(String chEBIId) throws Exception {
-        GKInstance databaseIdentifier =
-            new GKInstance(getSchema().getClassByName(ReactomeJavaConstants.DatabaseIdentifier));
-        
-        databaseIdentifier.setDbAdaptor(getDba());
-        databaseIdentifier.setAttributeValue(ReactomeJavaConstants.referenceDatabase, getChEBIReferenceDatabase());
-        databaseIdentifier.setAttributeValue(ReactomeJavaConstants.identifier, chEBIId);
-        databaseIdentifier.setAttributeValue(ReactomeJavaConstants.created, getCreatedInstanceEdit());
-        InstanceDisplayNameGenerator.setDisplayName(databaseIdentifier);
+        databaseIdentifier.setSchemaClassName(ReactomeJavaConstants.DatabaseIdentifier);
+        databaseIdentifier.setDefaultPersonId(getPersonDbId());
+        databaseIdentifier.setAttribute(ReactomeJavaConstants.referenceDatabase, getChEBIReferenceDatabase());
+        databaseIdentifier.setAttribute(ReactomeJavaConstants.identifier, chEBIId);
+        databaseIdentifier.setDisplayName(generateDisplayName(databaseIdentifier));
 
         return databaseIdentifier;
     }
 
-    private GKInstance getChEBIReferenceDatabase() throws Exception {
-        return (GKInstance) getDba().fetchInstanceByAttribute(
-            ReactomeJavaConstants.ReferenceDatabase, ReactomeJavaConstants._displayName, "=", "ChEBI"
-        ).iterator().next();
+    private void updateInDb(SimpleInstance instance) {
+        instance.setDefaultPersonId(getPersonDbId());
+        curatorToolAPI.commit(instance);
     }
 
-    private GKInstance getCreatedInstanceEdit() throws Exception {
-        if (createdInstanceEdit == null) {
-            createdInstanceEdit = new GKInstance(getSchema().getClassByName(ReactomeJavaConstants.InstanceEdit));
-            createdInstanceEdit.addAttributeValue(ReactomeJavaConstants.author, getPersonInstance());
-            createdInstanceEdit.addAttributeValue(ReactomeJavaConstants.dateTime, getCurrentDateTime());
-            createdInstanceEdit.addAttributeValue(ReactomeJavaConstants.note, "Added ChEBI cross-references to ReferenceTherapeutics");
-            InstanceDisplayNameGenerator.setDisplayName(createdInstanceEdit);
+    private SimpleInstance getChEBIReferenceDatabase() {
+        return curatorToolAPI.fetchChEBIReferenceDatabase();
+    }
+
+    private String generateDisplayName(SimpleInstance databaseIdentifier) {
+        SimpleInstance referenceDatabase =
+            (SimpleInstance) databaseIdentifier.getAttribute(ReactomeJavaConstants.referenceDatabase);
+        String referenceDatabaseName = referenceDatabase.getDisplayName();
+        String identifier = (String) databaseIdentifier.getAttribute(ReactomeJavaConstants.identifier);
+
+        return referenceDatabaseName + ":" + identifier;
+    }
+
+    private long getPersonDbId() {
+        try {
+            return Long.parseLong(getConfigProperties().getProperty("personId"));
+        } catch (IOException e) {
+            throw new RuntimeException("Unable to get personId", e);
         }
-        return createdInstanceEdit;
-    }
-
-    private GKInstance getPersonInstance() throws Exception {
-        long personDbId = Long.parseLong(getConfigProperties().getProperty("personId"));
-
-        return getDba().fetchInstance(personDbId);
-    }
-
-    private String getCurrentDateTime() {
-        return ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss"));
-    }
-
-    private MySQLAdaptor createDba() throws SQLException, IOException {
-        Properties configProperties = getConfigProperties();
-
-        String dbConfigPrefix = "curator.database.";
-        return new MySQLAdaptor(
-            configProperties.getProperty(dbConfigPrefix + "host", "localhost"),
-            configProperties.getProperty(dbConfigPrefix + "name"),
-            configProperties.getProperty(dbConfigPrefix + "user", "root"),
-            configProperties.getProperty(dbConfigPrefix + "password", "root")
-        );
     }
 
     private Properties getConfigProperties() throws IOException {
@@ -286,14 +262,6 @@ public class Main {
         }
 
         return guideToPharmacology2ChEBI;
-    }
-
-    private Schema getSchema() throws Exception {
-        if (getDba().getSchema() == null) {
-            getDba().fetchSchema();
-        }
-
-        return getDba().getSchema();
     }
 
     private Map<String, String> processGuideToPharmacologyFile() {
@@ -355,9 +323,9 @@ public class Main {
         return reader; // Return reader at proper position after version header, if exists
     }
 
-    private void report(GKInstance referenceTherapeutic, Set<String> chEBIIds, String typeOfChange) throws IOException {
+    private void report(SimpleInstance referenceTherapeutic, Set<String> chEBIIds, String typeOfChange) throws IOException {
         String outputLine = String.join("\t",
-                referenceTherapeutic.getDBID().toString(),
+                referenceTherapeutic.getDbId().toString(),
                 referenceTherapeutic.getDisplayName(),
                 "ChEBI Id(s):" + chEBIIds,
                 typeOfChange
@@ -384,9 +352,5 @@ public class Main {
 
     private BufferedReader getBufferedReader(String fileName) throws IOException {
         return Files.newBufferedReader(Paths.get(fileName));
-    }
-
-    private MySQLAdaptor getDba() {
-        return dba;
     }
 }
