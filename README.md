@@ -14,10 +14,6 @@ It will:
 This application requires a properties file at `src/main/resources/config.properties` that looks like this (with the appropriate values filled in place of the placeholders):
 
 ```
-curator.database.user=username
-curator.database.password=password
-curator.database.host=localhost
-curator.database.name=gk_central
 personId=person_db_id
 ```
 
