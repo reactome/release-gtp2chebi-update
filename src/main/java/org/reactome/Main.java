@@ -21,6 +21,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static org.aspectj.util.LangUtil.safeList;
+
 /**
  * @author Joel Weiser (joel.weiser@oicr.on.ca)
  * Created 1/30/2025
@@ -127,7 +129,7 @@ public class Main {
             for (String chEBIId : chEBIIds) {
                 logger.info("Adding ChEBI:" + chEBIId + " cross-reference to " + referenceTherapeutic);
                 List<SimpleInstance> crossReferences =
-                    (List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference);
+                    safeList((List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference));
                 crossReferences.add(createDatabaseIdentifier(chEBIId));
 
                 referenceTherapeutic.setAttribute(ReactomeJavaConstants.crossReference, crossReferences);
@@ -166,7 +168,7 @@ public class Main {
         Map<String, SimpleInstance> chEBICrossReferences = new HashMap<>();
 
         List<SimpleInstance> crossReferences =
-            (List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference);
+            safeList((List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference));
         for (SimpleInstance crossReference : crossReferences) {
             crossReference = curatorToolAPI.inflate(crossReference);
 
@@ -189,7 +191,7 @@ public class Main {
 
         for (SimpleInstance chEBIDatabaseIdentifier : chEBIDatabaseIdentifiers.values()) {
             List<SimpleInstance> crossReferences =
-                (List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference);
+                safeList((List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference));
             crossReferences.removeIf(crossReference -> crossReference.getDbId().equals(chEBIDatabaseIdentifier.getDbId()));
             referenceTherapeutic.setAttribute(ReactomeJavaConstants.crossReference, crossReferences);
         }
