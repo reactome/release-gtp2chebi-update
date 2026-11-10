@@ -129,7 +129,7 @@ public class Main {
             for (String chEBIId : chEBIIds) {
                 logger.info("Adding ChEBI:" + chEBIId + " cross-reference to " + referenceTherapeutic);
                 List<SimpleInstance> crossReferences =
-                    safeList((List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference));
+                    new ArrayList<>(safeList((List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference)));
                 crossReferences.add(createDatabaseIdentifier(chEBIId));
 
                 referenceTherapeutic.setAttribute(ReactomeJavaConstants.crossReference, crossReferences);
@@ -191,7 +191,7 @@ public class Main {
 
         for (SimpleInstance chEBIDatabaseIdentifier : chEBIDatabaseIdentifiers.values()) {
             List<SimpleInstance> crossReferences =
-                safeList((List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference));
+                new ArrayList<>(safeList((List<SimpleInstance>) referenceTherapeutic.getAttribute(ReactomeJavaConstants.crossReference)));
             crossReferences.removeIf(crossReference -> crossReference.getDbId().equals(chEBIDatabaseIdentifier.getDbId()));
             referenceTherapeutic.setAttribute(ReactomeJavaConstants.crossReference, crossReferences);
         }
