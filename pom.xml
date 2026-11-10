@@ -47,7 +47,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <log4j2.version>2.25.2</log4j2.version>
-        <curator-tool-ws.version>0.0.1-SNAPSHOT</curator-tool-ws.version>
+        <curator-tool-ws.version>1.0.0-SNAPSHOT</curator-tool-ws.version>
         <graph-core.version>2.0.13.CT</graph-core.version>
     </properties>
 
